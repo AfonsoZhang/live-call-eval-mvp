@@ -10,22 +10,6 @@ MVP 包含：
 - 基础评分器：开场、回复长度、黑名单词、企业微信跟进、优惠券 safety 红线。
 - CLI：输出 JSON 报告。
 
-## 上传到 GitHub
-
-1. 安装并登录 GitHub CLI（若未登录）：
-
-```powershell
-gh auth login
-```
-
-2. 在项目目录执行：
-
-```powershell
-.\push_to_github.ps1
-```
-
-默认仓库名 `live-call-eval-mvp`；可自定义：`.\push_to_github.ps1 my-repo-name`
-
 ## 快速运行
 
 ```powershell
