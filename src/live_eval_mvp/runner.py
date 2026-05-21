@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from .cases import CaseDefinition, get_case
 from .models import CaseConfig, Turn
 from .simulator import LocalStateMachineSimulator
+from .simulator_factory import UserSimulator
 from .sut import SUTClient
 
 
@@ -13,8 +15,14 @@ def build_sut_messages(trace: list[Turn]) -> list[dict[str, str]]:
     return messages
 
 
-def run_case(case: CaseConfig, sut: SUTClient) -> list[Turn]:
-    simulator = LocalStateMachineSimulator(case.persona, initial_state=case.initial_state)
+def run_case(
+    case: CaseConfig,
+    sut: SUTClient,
+    case_def: CaseDefinition | None = None,
+    simulator: UserSimulator | None = None,
+) -> list[Turn]:
+    definition = case_def or get_case(case.case_key or case.case_id.split("_")[0])
+    simulator = simulator or LocalStateMachineSimulator(definition)
     trace: list[Turn] = []
     turn_id = 1
 
@@ -26,7 +34,7 @@ def run_case(case: CaseConfig, sut: SUTClient) -> list[Turn]:
         if _sut_ended_conversation(sut_text) or turn_id > case.max_turns:
             break
 
-        user_reply = simulator.respond(sut_text, turn_id=turn_id)
+        user_reply = simulator.respond(sut_text, turn_id=turn_id, trace=trace)
         trace.append(
             Turn(
                 turn_id=turn_id,

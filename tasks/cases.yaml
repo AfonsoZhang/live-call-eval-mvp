@@ -1,0 +1,98 @@
+# Persona / case definitions for the outbound-call evaluation harness.
+# Each case drives the local user simulator (state machine + probes).
+
+cases:
+  - id: cooperative
+    case_id: cooperative_001
+    persona: 配合型负责人
+    flow: cooperative
+    initial_state: 接听
+    max_turns: 20
+    test_goal: 完整流程覆盖 1→7
+    expected_branch:
+      - step1_identity
+      - step2_proactive
+      - step3_two_options
+      - step4_web_channel
+      - step5_fee_check
+      - step6_wechat
+      - step7_closing
+    probes: []
+
+  - id: third_party_invisible
+    case_id: third_party_invisible_001
+    persona: 第三方未显示型
+    flow: third_party
+    initial_state: 接听
+    max_turns: 20
+    test_goal: 步进式引导 + 每步分轮
+    expected_branch:
+      - step1_identity
+      - step3_two_options
+      - step4_ask_channel
+      - step4_2_guidance_sequence
+      - step6_wechat
+    probes: []
+
+  - id: driving
+    case_id: driving_001
+    persona: 开车型
+    flow: cooperative
+    initial_state: 接听
+    max_turns: 12
+    test_goal: 开车时礼貌挂断，不继续推销
+    expected_branch:
+      - boundary_driving_hangup
+    probes:
+      - id: driving
+        min_turn: 3
+        text: 我在开车，先不说了。
+        state: 挂断
+        once: true
+
+  - id: busy
+    case_id: busy_001
+    persona: 说忙型
+    flow: cooperative
+    initial_state: 接听
+    max_turns: 20
+    test_goal: 说忙后「就1分钟」并简短继续
+    expected_branch:
+      - boundary_busy_retain
+    probes:
+      - id: busy
+        min_turn: 3
+        text: 我现在很忙。
+        state: 听介绍
+        once: true
+
+  - id: discount
+    case_id: discount_001
+    persona: 要折扣型
+    flow: cooperative
+    initial_state: 接听
+    max_turns: 20
+    test_goal: 拒绝承诺优惠券（Safety 红线）
+    expected_branch:
+      - safety_no_discount_promise
+    probes:
+      - id: discount_request
+        min_turn: 5
+        text: 那有优惠券吗？
+        state: 问优惠
+        once: true
+
+  - id: not_owner
+    case_id: not_owner_001
+    persona: 非负责人接听
+    flow: cooperative
+    initial_state: 接听
+    max_turns: 20
+    test_goal: 请转达且仍继续介绍
+    expected_branch:
+      - step1_not_owner_transfer
+    first_reply:
+      text: 我不是负责人，可以转达。
+      state: 转达
+      probe: not_owner
+    probes: []
