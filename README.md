@@ -17,16 +17,9 @@ cd path/to/live_call_eval_mvp
 python .\run_mvp.py --case cooperative --sut scripted
 ```
 
-## 配置密钥（.env）
+更多场景（均可用 `--sut scripted`，无需 API）：
 
-1. 安装依赖：`pip install -r requirements.txt`
-2. 复制 `copy .env.example .env`，编辑 `.env` 填入密钥（勿提交 `.env`）。建议 `SIMULATOR_MAX_TOKENS` 与 `JUDGE_MAX_TOKENS` 均为 `1024`。
-
-3. 直接运行 `python .\run_mvp.py ...` 时会**自动加载**项目根目录下的 `.env`。
-   - 已在终端里设置的 `$env:XXX` **优先**（不会被 `.env` 覆盖）。
-   - `--sut scripted` 且 `--simulator local`、`--judge off` 时无需配置密钥。
-
-第三方系统未显示场景：
+第三方未显示：
 
 ```powershell
 python .\run_mvp.py --case third_party_invisible --sut scripted
@@ -44,99 +37,40 @@ python .\run_mvp.py --case discount --sut scripted
 python .\run_mvp.py --case third_party_invisible --sut scripted --out .\reports\third_party_invisible.json
 ```
 
-## 接入 Anthropic API（推荐）
+## 配置与 API（.env）
 
-使用 Anthropic Messages API（`POST /v1/messages`）：
+安装依赖并配置密钥（**推荐只维护 `.env`**，`run_mvp.py` 启动时自动加载；终端里的 `$env:XXX` 优先级更高）：
 
 ```powershell
-$env:ANTHROPIC_API_KEY="your_anthropic_key"
-$env:SUT_MODEL="claude-sonnet-4-20250514"
-
-python .\run_mvp.py --case cooperative --sut anthropic
+pip install -r requirements.txt
+copy .env.example .env
+# 编辑 .env
 ```
 
-也支持统一环境变量名：
+### 三个组件
+
+| 组件 | CLI | 默认 | 环境变量前缀 | 说明 |
+|------|-----|------|----------------|------|
+| 被测客服 SUT | `--sut scripted\|openai\|anthropic` | `scripted` | `SUT_*` | 本地脚本无需密钥 |
+| 用户模拟器 | `--simulator local\|llm\|hybrid` | `local` | `SIMULATOR_*` | 推荐 `hybrid`（探针走状态机） |
+| 裁判 | `--judge off\|llm` | `off` | `JUDGE_*` | `llm` 覆写语义类 rubric |
+
+`.env.example` 中已列出常用项：`API_KEY`、`MODEL`、`PROTOCOL`（`openai` / `anthropic`）、`API_BASE_URL`、`MAX_TOKENS` 等。建议 `SIMULATOR_MAX_TOKENS` 与 `JUDGE_MAX_TOKENS` 设为 `1024`。
+
+### 推荐命令（真实模型全链路）
 
 ```powershell
-$env:SUT_API_KEY="your_anthropic_key"
-$env:SUT_MODEL="claude-sonnet-4-20250514"
-$env:SUT_API_BASE_URL="https://api.anthropic.com"
-$env:SUT_ANTHROPIC_VERSION="2023-06-01"
-$env:SUT_MAX_TOKENS="1024"
-
-python .\run_mvp.py --case cooperative --sut anthropic
-```
-
-参数覆盖示例：
-
-```powershell
-python .\run_mvp.py --case cooperative --sut anthropic --model claude-sonnet-4-20250514 --max-tokens 512
-```
-
-首轮外呼时历史为空，Anthropic 要求 `messages` 至少一条；MVP 会自动插入占位 user 消息「（电话已接通，请按外呼任务开场。）」，不会写入最终 trace。
-
-若使用 Anthropic 兼容网关，把 `--api-base-url` 设为网关根地址（不要带 `/v1/messages`）：
-
-```powershell
-python .\run_mvp.py --case cooperative --sut anthropic --api-base-url https://your-gateway.example.com
-```
-
-## 接入 OpenAI-compatible API
-
-```powershell
-$env:SUT_API_KEY="your_api_key"
-$env:SUT_MODEL="your_model"
-$env:SUT_API_BASE_URL="https://api.openai.com/v1"
-
-python .\run_mvp.py --case cooperative --sut openai
-```
-
-也可以用参数覆盖模型和 base URL：
-
-```powershell
-python .\run_mvp.py --case cooperative --sut openai --model your_model --api-base-url https://example.com/v1
-```
-
-## 用户模拟器 LLM API
-
-三种模式：`--simulator local|llm|hybrid`（推荐 `hybrid`：探针仍由状态机保证触发）。
-
-环境变量前缀 `SIMULATOR_*`（与 SUT 相同协议：`openai` / `anthropic`）：
-
-```powershell
-$env:SIMULATOR_API_KEY="your_key"
-$env:SIMULATOR_MODEL="your_model"
-$env:SIMULATOR_PROTOCOL="anthropic"
-$env:SIMULATOR_API_BASE_URL="https://your-gateway.example.com"
-
-python .\run_mvp.py --case cooperative --sut anthropic --simulator hybrid
-```
-
-CLI 可覆盖：
-
-```powershell
-python .\run_mvp.py --case third_party_invisible --sut anthropic `
-  --simulator hybrid --simulator-protocol anthropic --simulator-model your_model
-```
-
-## LLM Judge API
-
-`--judge off`（默认，纯规则）或 `--judge llm`（对已触发的语义 rubric 调用 Judge 覆写得分）。
-
-环境变量前缀 `JUDGE_*`：
-
-```powershell
-$env:JUDGE_API_KEY="your_key"
-$env:JUDGE_MODEL="your_model"
-$env:JUDGE_PROTOCOL="anthropic"
-$env:JUDGE_API_BASE_URL="https://your-gateway.example.com"
-
 python .\run_mvp.py --case cooperative --sut anthropic --simulator hybrid --judge llm
+python .\run_mvp.py --run-all --sut anthropic --simulator hybrid --judge llm --save-individual --html
 ```
 
-Judge 覆盖的 rubric 见 `src/live_eval_mvp/judge.py` 中 `LLM_JUDGE_CRITERIA`（开场、step2/3/4、身份分支、开车/忙碌边界、优惠拒绝、FAQ 延迟等）。
+### 协议与 CLI 覆盖
 
-密钥与模型名写在项目根目录 `.env` 即可，无需每次在 PowerShell 里 `$env:...`。
+- **Anthropic**：`SUT_API_BASE_URL` 填网关根地址（不要带 `/v1/messages`）。首轮历史为空时会自动插入占位 user 消息，不写入 trace。
+- **OpenAI 兼容**：`--sut openai`，`SUT_API_BASE_URL` 一般为 `https://api.openai.com/v1`。
+- 模拟器 / Judge 的 `*_PROTOCOL` 与 SUT 相同；也可用 CLI 覆盖，例如 `--model`、`--api-base-url`、`--simulator-model`、`--judge-model`。
+
+Judge 覆盖的 rubric 列表见 `src/live_eval_mvp/judge.py` 中的 `LLM_JUDGE_CRITERIA`。
 
 ## Case 配置（tasks/cases.yaml）
 
@@ -159,19 +93,16 @@ python -c "import sys; sys.path.insert(0,'src'); from live_eval_mvp import list_
 python .\run_mvp.py --case driving --cases .\tasks\cases.yaml --sut scripted
 ```
 
-安装依赖：
-
-```powershell
-pip install -r requirements.txt
-```
-
 ## 文件结构
 
 ```text
-run_mvp.py
-tasks/cases.yaml          # persona / 探针 / 期望分支
+run_mvp.py              # 主入口
+render_report.py        # JSON → HTML
+.env.example            # 密钥模板（复制为 .env，勿提交）
+tasks/cases.yaml        # persona / 探针 / 期望分支
 requirements.txt
 src/live_eval_mvp/
+  env.py                # 自动加载 .env
   cases.py              # 加载 YAML case 定义
   models.py             # trace 与报告数据结构
   simulator.py          # 本地状态机用户模拟器
@@ -183,6 +114,8 @@ src/live_eval_mvp/
   runner.py             # 两个 agent 的轮流调度
   scorer.py             # 规则评分 + 可选 LLM Judge
   batch.py              # 批量跑 case
+  report_html.py        # HTML 报告渲染
+reports/                # 本地输出（已在 .gitignore，不提交 Git）
 ```
 
 ## 评分维度（Phase 2）
@@ -213,39 +146,18 @@ python .\run_mvp.py --run-all --sut scripted --save-individual
 - `rubric_fail_rate`：各 rubric 失败率
 - `results`：每个 case 的完整报告
 
-指定输出路径：
+指定输出路径或生成 HTML：
 
 ```powershell
-python .\run_mvp.py --run-all --sut anthropic --out .\reports\summary_run.json
+python .\run_mvp.py --run-all --sut anthropic --out .\reports\summary_run.json --html
 ```
 
-真实 SUT 批量（需已配置 API）：
+## HTML 报告
 
-```powershell
-$env:SUT_API_KEY="..."
-$env:SUT_MODEL="your_model_name"
-$env:SUT_API_BASE_URL="https://your-gateway.example.com"
-python .\run_mvp.py --run-all --sut anthropic --simulator hybrid --judge llm --save-individual
-```
+加 `--html` 在与 JSON 同目录生成同名 `.html`；或对已有 JSON：`python .\render_report.py .\reports\summary_xxx.json`。用浏览器打开即可查看。
 
-## HTML 报告（浏览器查看）
+## 后续计划
 
-跑评测时顺带生成 HTML（与 JSON 同目录、同名 `.html`）：
-
-```powershell
-python .\run_mvp.py --case cooperative --sut scripted --out .\reports\cooperative.json --html
-python .\run_mvp.py --run-all --sut scripted --html
-```
-
-已有 JSON 可单独转换：
-
-```powershell
-python .\render_report.py .\reports\summary_test.json
-python .\render_report.py .\reports\cooperative.json .\reports\driving.json
-```
-
-用浏览器打开生成的 `.html` 即可：汇总表、各 case 展开详情、对话气泡、规则与违规列表。
-
-## 下一步
-
-- Pass^3：`--trials 3` 已支持 `pass_at_k`。
+- 扩展 persona（方案中更多边界场景）
+- 汇总报告 HTML 顶部展示 `simulator` / `judge` 后端（与 JSON 字段对齐）
+- 可选：流程节点可视化、与竞赛平台对接
